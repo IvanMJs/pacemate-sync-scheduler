@@ -2,7 +2,7 @@ name: Protected application scheduler
 
 "on":
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '17,47 * * * *'
     - cron: '13 3 1 * *'
   workflow_dispatch:
 
