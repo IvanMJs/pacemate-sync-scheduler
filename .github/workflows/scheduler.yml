@@ -29,7 +29,7 @@ jobs:
             --header "Authorization: Bearer $AUTOMATION_SECRET" \
             --output /dev/null --write-out 'Import HTTP %{http_code}\n' \
             https://run-coach-nu.vercel.app/api/cron/garmin
-          curl --fail --silent --show-error --max-time 45 \
+          curl --fail --silent --show-error --max-time 65 \
             --header "Authorization: Bearer $AUTOMATION_SECRET" \
             --output /dev/null --write-out 'Analysis HTTP %{http_code}\n' \
             https://run-coach-nu.vercel.app/api/cron/coach
