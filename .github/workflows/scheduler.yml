@@ -1,0 +1,55 @@
+name: Protected application scheduler
+
+"on":
+  schedule:
+    - cron: '*/5 * * * *'
+    - cron: '13 3 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: protected-application-maintenance
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.event.schedule != '13 3 1 * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Invoke protected maintenance endpoints
+        env:
+          AUTOMATION_SECRET: ${{ secrets.AUTOMATION_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$AUTOMATION_SECRET"
+          curl --fail --silent --show-error --max-time 55 \
+            --header "Authorization: Bearer $AUTOMATION_SECRET" \
+            --output /dev/null --write-out 'Import HTTP %{http_code}\n' \
+            https://run-coach-nu.vercel.app/api/cron/garmin
+          curl --fail --silent --show-error --max-time 45 \
+            --header "Authorization: Bearer $AUTOMATION_SECRET" \
+            --output /dev/null --write-out 'Analysis HTTP %{http_code}\n' \
+            https://run-coach-nu.vercel.app/api/cron/coach
+
+  maintenance:
+    if: github.event_name == 'schedule' && github.event.schedule == '13 3 1 * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: write
+    steps:
+      - name: Record generic monthly maintenance date
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/contents/README.md" --jq .sha)
+          body=$(gh api "repos/$GITHUB_REPOSITORY/contents/README.md" --jq .content | base64 --decode)
+          updated=$(printf '%s\n' "$body" | sed "s/^Last maintenance:.*/Last maintenance: $(date -u +%F)./")
+          encoded=$(printf '%s\n' "$updated" | base64 -w 0)
+          gh api --method PUT "repos/$GITHUB_REPOSITORY/contents/README.md" \
+            -f message='chore: record monthly scheduler maintenance' \
+            -f content="$encoded" -f sha="$sha" >/dev/null
